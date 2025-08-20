@@ -43,7 +43,7 @@ A lightning-fast NeoVim dashboard plugin that greets you with neofetch-style sys
 ### lazy.nvim
 ```lua
 {
-  "yourusername/dashgate",
+  "chaoswrd/dashgate",
   event = "VimEnter",
   config = function()
     require('dashgate').setup()
@@ -54,7 +54,7 @@ A lightning-fast NeoVim dashboard plugin that greets you with neofetch-style sys
 ### packer.nvim
 ```lua
 use {
-  "yourusername/dashgate",
+  "chaoswrd/dashgate",
   config = function()
     require('dashgate').setup()
   end
@@ -64,10 +64,10 @@ use {
 ### Manual Installation
 ```bash
 # Clone to your NeoVim config
-git clone https://github.com/yourusername/dashgate.git ~/.config/nvim/lua/dashgate
+git clone https://github.com/chaoswrd/dashgate.git ~/.config/nvim/lua/dashgate
 
 # Or for development
-git clone https://github.com/yourusername/dashgate.git ~/dev/dashgate
+git clone https://github.com/chaoswrd/dashgate.git ~/dev/dashgate
 ```
 
 ## 🛠️ Configuration
@@ -118,8 +118,6 @@ Dashgate automatically detects and displays appropriate ASCII art for:
 - **🐧 Linux Distributions**
   - Ubuntu (classic swirl logo)
   - Arch Linux (mountain design)
-  - Fedora
-  - Debian
   - Generic Linux (Tux-inspired)
 - **🍎 macOS** (Apple logo)
 - **🪟 Windows** (Windows flag design)
@@ -192,8 +190,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
-- [Report Issues](https://github.com/yourusername/dashgate/issues)
-- [Feature Requests](https://github.com/yourusername/dashgate/discussions)
+- [Report Issues](https://github.com/chaoswrd/dashgate/issues)
+- [Feature Requests](https://github.com/chaoswrd/dashgate/discussions)
 - [NeoVim Documentation](https://neovim.io/doc/)
 
 ---
@@ -202,6 +200,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **Made with ❤️ for the NeoVim community**
 
-[⭐ Star this repo](https://github.com/yourusername/dashgate) • [🐛 Report Bug](https://github.com/yourusername/dashgate/issues) • [💡 Request Feature](https://github.com/yourusername/dashgate/discussions)
+[⭐ Star this repo](https://github.com/chaoswrd/dashgate) • [🐛 Report Bug](https://github.com/chaoswrd/dashgate/issues) • [💡 Request Feature](https://github.com/chaoswrd/dashgate/discussions)
 
 </div>
