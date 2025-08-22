@@ -25,33 +25,47 @@ end
 local function generate_content_box(title, entries)
   -- Content Box Data
   local contents = formatTable(entries)
-  local content_width = #contents[1]
+  local content_width = 0
+  for _, line in ipairs(contents) do
+    content_width = math.max(content_width, #line)
+  end
+
+  -- Calculate the box width needed
+  local header_title = " " .. title .. " "
+  local min_width_for_title = #header_title + 4 -- +4 for corner chars and some border
+  local min_width_for_content = content_width + 2 -- +2 for side spaces
+  local box_inner_width = math.max(min_width_for_title, min_width_for_content)
 
   local lines = {}
 
   -- Generate Header
-  local header_title = string.format(" %s ", title)
-
-  local box_width = math.max(#header_title, content_width)
-
-  local header_border = string.rep("─", (box_width - #header_title) / 2)
-
-  local header = "╭─" .. header_border .. header_title .. header_border .. "─╮"
-
+  local title_border_length = math.max(0, math.floor((box_inner_width - #header_title) / 2))
+  local remaining_border = box_inner_width - #header_title - title_border_length
+  local header = "╭" .. string.rep("─", title_border_length) .. header_title .. string.rep("─", remaining_border) .. "╮"
   table.insert(lines, header)
 
-  local content_border = string.rep(" ", (box_width - content_width) / 2)
-
-  table.insert(lines, "│ " .. string.rep(" ", box_width) .. " │")
+  -- Generate content lines
   for _, content in ipairs(contents) do
-    table.insert(lines, "│ " .. content_border .. content .. content_border .. " │")
+    local content_padding = math.max(0, math.floor((box_inner_width - #content) / 2))
+    local remaining_padding = box_inner_width - #content - content_padding
+    local content_line = "│" .. string.rep(" ", content_padding) .. content .. string.rep(" ", remaining_padding) .. "│"
+    table.insert(lines, content_line)
   end
-  table.insert(lines, "│ " .. string.rep(" ", box_width) .. " │")
 
-  local footer = "╰" .. string.rep("─", content_width + 2) .. "╯"
+  -- Generate Footer
+  local footer = "╰" .. string.rep("─", box_inner_width) .. "╯"
   table.insert(lines, footer)
 
-  return table.concat(lines, "\n")
+  return lines
+end
+
+local function generate_keybindings_box()
+  local keybindings = {
+    { name = "f", value = "Find files" },
+    { name = "n", value = "New file" },
+    { name = "q", value = "Quit" },
+  }
+  return generate_content_box("NeoVim Dashboard", keybindings)
 end
 
 local M = {}
@@ -84,40 +98,37 @@ function M.render_dashboard(buf)
     { name = "Uptime", value = sys_info.uptime:sub(1, 20) },
   }
 
-  local info_lines = generate_content_box("System Information", system_information)
-
-  vim.notify(info_lines)
-
-  -- Create info lines
-  info_lines = {
-    "",
-    "╭─ System Information ─╮",
-    string.format("│ OS: %s", sys_info.os:gsub("^%l", string.upper)),
-    string.format("│ Host: %s", sys_info.hostname),
-    string.format("│ Kernel: %s", sys_info.kernel),
-    string.format("│ Arch: %s", sys_info.arch),
-    string.format("│ Uptime: %s", sys_info.uptime:sub(1, 20)),
-  }
-
+  -- Add memory if available
   if sys_info.memory then
-    table.insert(info_lines, string.format("│ Memory: %s", sys_info.memory))
+    table.insert(system_information, { name = "Memory", value = sys_info.memory })
   end
 
-  table.insert(info_lines, "╰──────────────────────╯")
-  table.insert(info_lines, "")
-  table.insert(info_lines, "╭──────────────────────╮")
-  table.insert(info_lines, "│ f - Find files       │")
-  table.insert(info_lines, "│ n - New file         │")
-  table.insert(info_lines, "│ q - Quit             │")
-  table.insert(info_lines, "╰──────────────────────╯")
+  -- Generate dynamic boxes
+  local system_box = generate_content_box("System Information", system_information)
+  local keybindings_box = generate_keybindings_box()
 
-  -- Calculate layout
+  -- Combine boxes with empty line separator
+  local info_lines = {}
+  for _, line in ipairs(system_box) do
+    table.insert(info_lines, line)
+  end
+  table.insert(info_lines, "")
+  for _, line in ipairs(keybindings_box) do
+    table.insert(info_lines, line)
+  end
+
+  -- Calculate layout dynamically
   local art_width = 0
   for _, line in ipairs(art) do
     art_width = math.max(art_width, #line)
   end
 
-  local info_width = 25
+  -- Calculate info width dynamically from the generated boxes
+  local info_width = 0
+  for _, line in ipairs(info_lines) do
+    info_width = math.max(info_width, #line)
+  end
+
   local total_width = art_width + info_width + 4 -- padding
   local start_col = math.floor((win_width - total_width) / 2)
   local start_row = math.floor((win_height - math.max(#art, #info_lines)) / 2)
