@@ -1,267 +1,23 @@
+local dashboard = require("dashgate.dashboard")
 local M = {}
 
--- System detection
-local function get_os()
-  local os_name = vim.loop.os_uname().sysname
-  if os_name == "Linux" then
-    -- Check for specific distributions
-    local handle = io.popen(
-      "lsb_release -si 2>/dev/null || cat /etc/os-release 2>/dev/null | grep '^ID=' | cut -d'=' -f2 | tr -d '\"'"
-    )
-    if handle then
-      local result = handle:read("*a"):lower():gsub("%s+", "")
-      handle:close()
-      if result:find("ubuntu") then
-        return "ubuntu"
-      elseif result:find("arch") then
-        return "arch"
-      end
-    end
-    return "linux"
-  elseif os_name == "Darwin" then
-    return "macos"
-  elseif os_name:find("Windows") then
-    return "windows"
-  else
-    return "unknown"
-  end
-end
-
--- ASCII art for different operating systems
-local ascii_art = {
-  ubuntu = {
-    "             _,met$$$$$gg.            ",
-    "          ,g$$$$$$$$$$$$$$$P.         ",
-    '        ,g$$P"     """Y$$."`.         ',
-    "       ,$$P'              `$$$.       ",
-    "      ',$$P       ,ggs.     `$$b:     ",
-    "      `d$$'     ,$P\"'   .    $$$     ",
-    "       $$P      d$'     ,    $$P      ",
-    "       $$:      $$.   -    ,d$$'      ",
-    "       $$;      Y$b._   _,d$P'        ",
-    '       Y$$.    `.`"Y$$$$P"\'          ',
-    '       `$$b      "-.__                ',
-    "        `Y$$                          ",
-    "         `Y$$.                        ",
-    "           `$$b.                      ",
-    "             `Y$$b.                   ",
-    '                `"Y$b._               ',
-    '                    `""""             ',
-  },
-
-  arch = {
-    "                   -`                 ",
-    "                  .o+`                ",
-    "                 `ooo/                ",
-    "                `+oooo:               ",
-    "               `+oooooo:              ",
-    "               -+oooooo+:             ",
-    "             `/:-:++oooo+:            ",
-    "            `/++++/+++++++:           ",
-    "           `/++++++++++++++:          ",
-    "          `/+++ooooooooo+++:          ",
-    "         ./ooosssso++osssssso+.       ",
-    "        .oossssso-````/ossssss+`      ",
-    "       -osssssso.      :ssssssso.     ",
-    "      :osssssss/        osssso+++.    ",
-    "     /ossssssss/        +ssssooo/-    ",
-    "   `/ossssso+/:-        -:/+osssso+-  ",
-    "  `+sso+:-`                 `.-/+oso: ",
-    " `++:.                           `-/+/",
-    " .`                                 `/",
-  },
-
-  macos = {
-    "                        'c.            ",
-    "                     ,xNMM.            ",
-    "                   .OMMMMo             ",
-    "                   OMMM0,              ",
-    "         .;loddo:' loolloddol;.        ",
-    "       cKMMMMMMMMMMNWMMMMMMMMMM0:      ",
-    "     .KMMMMMMMMMMMMMMMMMMMMMMMWd.      ",
-    "     XMMMMMMMMMMMMMMMMMMMMMMMX.        ",
-    "    ;MMMMMMMMMMMMMMMMMMMMMMMM:         ",
-    "    :MMMMMMMMMMMMMMMMMMMMMMMM:         ",
-    "    .MMMMMMMMMMMMMMMMMMMMMMMMX.        ",
-    "     kMMMMMMMMMMMMMMMMMMMMMMMMWd.      ",
-    "     .XMMMMMMMMMMMMMMMMMMMMMMMMMMk     ",
-    "      .XMMMMMMMMMMMMMMMMMMMMMMMMK.     ",
-    "        kMMMMMMMMMMMMMMMMMMMMMMd       ",
-    "         ;KMMMMMMMWXXWMMMMMMMk.        ",
-    "           .cooc,.    .,coo:.          ",
-  },
-
-  linux = {
-    "        #####           ",
-    "       #######          ",
-    "       ##O#O##          ",
-    "       #######          ",
-    "     ###########        ",
-    "    #############       ",
-    "   ###############      ",
-    "   ################     ",
-    "  #################     ",
-    " #####################  ",
-    "#####################   ",
-    "######################  ",
-    "#######################",
-    "#######################",
-    " #####################  ",
-    "  ###################   ",
-    "   #################    ",
-    "    ###############     ",
-    "     #############      ",
-    "      ###########       ",
-    "        #######         ",
-    "         #####          ",
-  },
-
-  windows = {
-    "        ,.=:!!t3Z3z.,           ",
-    "       :tt:::tt333EE3           ",
-    "       Et:::ztt33EEEL @Ee.,     ",
-    "      ;tt:::tt333EE7 ;EEEEEEt,  ",
-    "     :Et:::zt333EEQ. $EEEEEEtE@",
-    "     it::::tt333EEF @EEEEEEEttE.",
-    '    ;3=*^```"*4EEV :EEEEEEEtttEt',
-    "    ,.=::::!t=., ` @EEEEEEtttz33QF",
-    '   ;::::::::zt33)   "4EEEtttji3P*',
-    "  :t::::::::tt33.:Z3z.. `` ,..g. ",
-    "  i::::::::zt33F AEEEtttt::::ztF ",
-    " ;:::::::::t33V ;EEEttttt::::t3  ",
-    " E::::::::zt33L @EEEtttt::::z3F  ",
-    '{3=*^```"*4E3) ;EEEtttt:::::tZ`  ',
-    "             ` :EEEEtttt::::z7   ",
-    '                 "VEzjt:;;z>*`   ',
-  },
-
-  unknown = {
-    "   ?????????   ",
-    " ????????????? ",
-    "???????????????",
-    "???????????????",
-    "???????????????",
-    "???????????????",
-    " ????????????? ",
-    "   ?????????   ",
-  },
+local plugin_state = {
+  -- Contains the dashboard buffer
+  dashboard_buf = nil,
+  -- Contains the original window
+  window_buf = nil,
+  -- Stores the original window options
+  original_window_options = {},
 }
 
--- Get system information
-local function get_system_info()
-  local info = {}
-  local uname = vim.loop.os_uname()
-
-  info.os = get_os()
-  info.hostname = uname.nodename or "unknown"
-  info.kernel = uname.release or "unknown"
-  info.arch = uname.machine or "unknown"
-
-  -- Get uptime
-  local uptime_handle = io.popen("uptime -p 2>/dev/null || uptime")
-  if uptime_handle then
-    local uptime_str = uptime_handle:read("*a"):gsub("\n", "")
-    uptime_handle:close()
-    info.uptime = uptime_str:match("up (.+)") or uptime_str
-  else
-    info.uptime = "unknown"
-  end
-
-  -- Get memory info (Linux/macOS)
-  if info.os ~= "windows" then
-    local mem_handle =
-      io.popen("free -h 2>/dev/null | awk '/^Mem:/ {print $3\"/\"$2}' || vm_stat 2>/dev/null | head -4")
-    if mem_handle then
-      info.memory = mem_handle:read("*a"):gsub("\n", "") or "unknown"
-      mem_handle:close()
-    end
-  end
-
-  return info
-end
-
--- Plugin state
-local dashboard_buf = nil
-local dashboard_win = nil
-
--- Create the dashboard buffer
-local function create_dashboard_buffer()
-  local buf = vim.api.nvim_create_buf(false, true)
-
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
-  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(buf, "swapfile", false)
-  vim.api.nvim_buf_set_name(buf, "Dashboard")
-
-  return buf
-end
-
--- Render the dashboard content
-local function render_dashboard(buf)
-  local win_height = vim.api.nvim_win_get_height(0)
-  local win_width = vim.api.nvim_win_get_width(0)
-
-  -- Get system info
-  local sys_info = get_system_info()
-  local art = ascii_art[sys_info.os] or ascii_art.unknown
-
-  -- Create info lines
-  local info_lines = {
-    "",
-    "╭─ System Information ─╮",
-    string.format("│ OS: %s", sys_info.os:gsub("^%l", string.upper)),
-    string.format("│ Host: %s", sys_info.hostname),
-    string.format("│ Kernel: %s", sys_info.kernel),
-    string.format("│ Arch: %s", sys_info.arch),
-    string.format("│ Uptime: %s", sys_info.uptime:sub(1, 20)),
-  }
-
-  if sys_info.memory then
-    table.insert(info_lines, string.format("│ Memory: %s", sys_info.memory))
-  end
-
-  table.insert(info_lines, "╰──────────────────────╯")
-  table.insert(info_lines, "")
-  table.insert(info_lines, "╭──────────────────────╮")
-  table.insert(info_lines, "│ f - Find files       │")
-  table.insert(info_lines, "│ n - New file         │")
-  table.insert(info_lines, "│ q - Quit             │")
-  table.insert(info_lines, "╰──────────────────────╯")
-
-  -- Calculate layout
-  local art_width = 0
-  for _, line in ipairs(art) do
-    art_width = math.max(art_width, #line)
-  end
-
-  local info_width = 25
-  local total_width = art_width + info_width + 4 -- padding
-  local start_col = math.floor((win_width - total_width) / 2)
-  local start_row = math.floor((win_height - math.max(#art, #info_lines)) / 2)
-
-  -- Build combined lines
-  local lines = {}
-
-  -- Add empty lines to center vertically
-  for i = 1, math.max(0, start_row) do
-    table.insert(lines, "")
-  end
-
-  -- Combine ASCII art with system info
-  local max_lines = math.max(#art, #info_lines)
-  for i = 1, max_lines do
-    local art_line = art[i] or string.rep(" ", art_width)
-    local info_line = info_lines[i] or ""
-
-    local combined_line = string.rep(" ", math.max(0, start_col)) .. art_line .. "    " .. info_line
-
-    table.insert(lines, combined_line)
-  end
-
-  -- Set all lines
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
-end
+local dashboard_window_options = {
+  { option = "number",         value = false },
+  { option = "relativenumber", value = false },
+  { option = "cursorline",     value = false },
+  { option = "cursorcolumn",   value = false },
+  { option = "foldcolumn",     value = "0" },
+  { option = "signcolumn",     value = "no" },
+}
 
 -- Set up dashboard keymaps
 local function setup_keymaps(buf)
@@ -285,19 +41,50 @@ local function setup_keymaps(buf)
   end, opts)
 end
 
--- Main function to show dashboard
-function M.show()
-  if not dashboard_buf or not vim.api.nvim_buf_is_valid(dashboard_buf) then
-    dashboard_buf = create_dashboard_buffer()
+local function enable_plugin()
+  -- If there's no dashboard buffer then create a new one
+  if not plugin_state.dashboard_buf or not vim.api.nvim_buf_is_valid(plugin_state.dashboard_buf) then
+    plugin_state.dashboard_buf = dashboard.create_dashboard_buffer()
   end
 
-  vim.api.nvim_set_current_buf(dashboard_buf)
-  dashboard_win = vim.api.nvim_get_current_win()
+  -- Store the original window options
+  -- TODO: Multiple windows make break this? I don't know...
+  if not plugin_state.window_buf or not vim.api.nvim_win_is_valid(plugin_state.window_buf) then
+    plugin_state.window_buf = vim.api.nvim_get_current_win()
+    -- Loop over all the window options the dashboard sets, retrieve them for the current window and save them for later
+    for index, window_option in ipairs(dashboard_window_options) do
+      plugin_state.original_window_options[index] =
+      { option = window_option.option, value = vim.api.nvim_get_option_value(window_option.option, {}) }
+    end
+  end
+end
 
-  render_dashboard(dashboard_buf)
-  setup_keymaps(dashboard_buf)
+local function cleanup_plugin(event)
+  local win_id = vim.api.nvim_get_current_win()
+  -- local is_buf_visible =  winId == -1 or
+  if win_id == plugin_state.window_buf then
+    for _, window_option in ipairs(plugin_state.original_window_options) do
+      vim.api.nvim_set_option_value(window_option.option, window_option.value, { scope = "local", win = win })
+    end
+    plugin_state.dashboard_buf = nil
+    plugin_state.window_buf = nil
+    plugin_state.saved_options = nil
+  end
+end
 
-  -- Set window options
+vim.api.nvim_create_autocmd("BufWinEnter", {
+  callback = cleanup_plugin,
+})
+
+-- Main function to show dashboard
+function M.show()
+  enable_plugin()
+  vim.api.nvim_set_current_buf(plugin_state.dashboard_buf)
+
+  dashboard.render_dashboard(plugin_state.dashboard_buf)
+  setup_keymaps(plugin_state.dashboard_buf)
+
+  -- =Set Window Options=
   vim.wo.number = false
   vim.wo.relativenumber = false
   vim.wo.cursorline = false
