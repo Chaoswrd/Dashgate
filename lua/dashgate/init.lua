@@ -3,8 +3,6 @@ local M = {}
 -- System detection
 local function get_os()
   local os_name = vim.loop.os_uname().sysname
-  return "arch"
-  --[[
   if os_name == "Linux" then
     -- Check for specific distributions
     local handle = io.popen(
@@ -17,10 +15,6 @@ local function get_os()
         return "ubuntu"
       elseif result:find("arch") then
         return "arch"
-      elseif result:find("fedora") then
-        return "fedora"
-      elseif result:find("debian") then
-        return "debian"
       end
     end
     return "linux"
@@ -31,7 +25,6 @@ local function get_os()
   else
     return "unknown"
   end
-  ]]
 end
 
 -- ASCII art for different operating systems
@@ -177,7 +170,7 @@ local function get_system_info()
   -- Get memory info (Linux/macOS)
   if info.os ~= "windows" then
     local mem_handle =
-        io.popen("free -h 2>/dev/null | awk '/^Mem:/ {print $3\"/\"$2}' || vm_stat 2>/dev/null | head -4")
+      io.popen("free -h 2>/dev/null | awk '/^Mem:/ {print $3\"/\"$2}' || vm_stat 2>/dev/null | head -4")
     if mem_handle then
       info.memory = mem_handle:read("*a"):gsub("\n", "") or "unknown"
       mem_handle:close()
@@ -316,18 +309,6 @@ end
 -- Setup function
 function M.setup(opts)
   opts = opts or {}
-
-  vim.api.nvim_create_user_command("Dashboard", function()
-    M.show()
-  end, { desc = "Show dashboard" })
-
-  vim.api.nvim_create_autocmd("VimEnter", {
-    callback = function()
-      if vim.fn.argc() == 0 and vim.bo.filetype == "" then
-        M.show()
-      end
-    end,
-  })
 end
 
 return M
