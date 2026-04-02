@@ -2,6 +2,24 @@ local os = require("dashgate.os")
 local ascii_art = require("dashgate.ascii-art")
 
 local M = {}
+
+function M.format_uptime(uptime)
+  local parts = {}
+  if uptime.days > 0 then
+    table.insert(parts, uptime.days .. "d")
+  end
+  if uptime.hours > 0 then
+    table.insert(parts, uptime.hours .. "h")
+  end
+  if uptime.mins > 0 then
+    table.insert(parts, uptime.mins .. "m")
+  end
+  if #parts == 0 then
+    return "< 1m"
+  end
+  return table.concat(parts, " ")
+end
+
 -- Create the dashboard buffer
 function M.create_dashboard_buffer()
   local buf = vim.api.nvim_create_buf(false, true)
@@ -31,7 +49,7 @@ function M.render_dashboard(buf)
     string.format("│ Host: %s", sys_info.hostname),
     string.format("│ Kernel: %s", sys_info.kernel),
     string.format("│ Arch: %s", sys_info.arch),
-    string.format("│ Uptime: %s", sys_info.uptime:sub(1, 20)),
+    string.format("│ Uptime: %s", M.format_uptime(sys_info.uptime)),
   }
 
   if sys_info.memory then

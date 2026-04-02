@@ -11,12 +11,12 @@ local plugin_state = {
 }
 
 local dashboard_window_options = {
-  { option = "number",         value = false },
+  { option = "number", value = false },
   { option = "relativenumber", value = false },
-  { option = "cursorline",     value = false },
-  { option = "cursorcolumn",   value = false },
-  { option = "foldcolumn",     value = "0" },
-  { option = "signcolumn",     value = "no" },
+  { option = "cursorline", value = false },
+  { option = "cursorcolumn", value = false },
+  { option = "foldcolumn", value = "0" },
+  { option = "signcolumn", value = "no" },
 }
 
 -- Set up dashboard keymaps
@@ -54,7 +54,7 @@ local function enable_plugin()
     -- Loop over all the window options the dashboard sets, retrieve them for the current window and save them for later
     for index, window_option in ipairs(dashboard_window_options) do
       plugin_state.original_window_options[index] =
-      { option = window_option.option, value = vim.api.nvim_get_option_value(window_option.option, {}) }
+        { option = window_option.option, value = vim.api.nvim_get_option_value(window_option.option, {}) }
     end
   end
 end
