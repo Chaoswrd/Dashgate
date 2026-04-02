@@ -26,6 +26,39 @@ function M.get_os()
   end
 end
 
+-- Parse uptime string into { days, hours, mins }
+function M.parse_uptime(uptime_str)
+  local result = { days = 0, hours = 0, mins = 0 }
+
+  -- Strip everything from "user" or "load" onward
+  local relevant = uptime_str:match("up%s+(.-)%s*%d+%s*user") or uptime_str:match("up%s+(.+)") or uptime_str
+
+  -- Extract days
+  local days = relevant:match("(%d+)%s*days?")
+  if days then
+    result.days = tonumber(days)
+  end
+
+  -- Extract HH:MM format (macOS/BSD style)
+  local hh, mm = relevant:match("(%d+):(%d+)")
+  if hh then
+    result.hours = tonumber(hh)
+    result.mins = tonumber(mm)
+  end
+
+  -- Extract spelled-out hours/minutes (Linux uptime -p style)
+  local hours = relevant:match("(%d+)%s*hours?")
+  if hours then
+    result.hours = tonumber(hours)
+  end
+  local mins = relevant:match("(%d+)%s*min")
+  if mins then
+    result.mins = tonumber(mins)
+  end
+
+  return result
+end
+
 -- Get system information
 function M.get_system_info()
   local info = {}
@@ -41,15 +74,15 @@ function M.get_system_info()
   if uptime_handle then
     local uptime_str = uptime_handle:read("*a"):gsub("\n", "")
     uptime_handle:close()
-    info.uptime = uptime_str:match("up (.+)") or uptime_str
+    info.uptime = M.parse_uptime(uptime_str)
   else
-    info.uptime = "unknown"
+    info.uptime = { days = 0, hours = 0, mins = 0 }
   end
 
   -- Get memory info (Linux/macOS)
   if info.os ~= "windows" then
     local mem_handle =
-        io.popen("free -h 2>/dev/null | awk '/^Mem:/ {print $3\"/\"$2}' || vm_stat 2>/dev/null | head -4")
+      io.popen("free -h 2>/dev/null | awk '/^Mem:/ {print $3\"/\"$2}' || vm_stat 2>/dev/null | head -4")
     if mem_handle then
       info.memory = mem_handle:read("*a"):gsub("\n", "") or "unknown"
       mem_handle:close()
