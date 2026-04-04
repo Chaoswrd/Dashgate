@@ -8,6 +8,8 @@ local plugin_state = {
   window_buf = nil,
   -- Stores the original window options
   original_window_options = {},
+  -- VimResized autocmd ID for cleanup
+  vim_resized_autocmd_id = nil,
 }
 
 local dashboard_window_options = {
@@ -66,6 +68,10 @@ local function cleanup_plugin(event)
     for _, window_option in ipairs(plugin_state.original_window_options) do
       vim.api.nvim_set_option_value(window_option.option, window_option.value, { scope = "local", win = win })
     end
+    if plugin_state.vim_resized_autocmd_id then
+      vim.api.nvim_del_autocmd(plugin_state.vim_resized_autocmd_id)
+      plugin_state.vim_resized_autocmd_id = nil
+    end
     plugin_state.dashboard_buf = nil
     plugin_state.window_buf = nil
     plugin_state.saved_options = nil
@@ -83,6 +89,19 @@ function M.show()
 
   dashboard.render_dashboard(plugin_state.dashboard_buf)
   setup_keymaps(plugin_state.dashboard_buf)
+
+  -- Re-render on window resize
+  if plugin_state.vim_resized_autocmd_id then
+    vim.api.nvim_del_autocmd(plugin_state.vim_resized_autocmd_id)
+  end
+  plugin_state.vim_resized_autocmd_id = vim.api.nvim_create_autocmd("VimResized", {
+    callback = function()
+      if plugin_state.dashboard_buf and vim.api.nvim_buf_is_valid(plugin_state.dashboard_buf) then
+        vim.api.nvim_buf_set_option(plugin_state.dashboard_buf, "modifiable", true)
+        dashboard.render_dashboard(plugin_state.dashboard_buf)
+      end
+    end,
+  })
 
   -- =Set Window Options=
   vim.wo.number = false

@@ -41,57 +41,137 @@ function M.render_dashboard(buf)
   local sys_info = os.get_system_info()
   local art = ascii_art.ascii_art[sys_info.os] or ascii_art.unknown
 
-  -- Create info lines
-  local info_lines = {
-    "",
-    "╭─ System Information ─╮",
+  -- Helper: build a bordered box with dynamic width
+  local function strwidth(s)
+    return vim.api.nvim_strwidth(s)
+  end
+
+  local function make_box(title, content_lines)
+    -- Find the widest content line by display width
+    local max_content = strwidth(title) + 4 -- minimum: title + border dashes
+    for _, line in ipairs(content_lines) do
+      max_content = math.max(max_content, strwidth(line))
+    end
+
+    local box = {}
+    -- Top border: ╭─ Title ─╮
+    local title_dashes = max_content - strwidth(title) - 2
+    local left_dashes = 1
+    local right_dashes = math.max(1, title_dashes - left_dashes)
+    local top = "╭"
+      .. string.rep("─", left_dashes)
+      .. " "
+      .. title
+      .. " "
+      .. string.rep("─", right_dashes)
+      .. "╮"
+    table.insert(box, top)
+
+    local box_display_width = strwidth(top)
+    -- Content lines padded to fill the box
+    for _, line in ipairs(content_lines) do
+      local padding = box_display_width - strwidth(line) - 2 -- 2 for closing " │"
+      table.insert(box, line .. string.rep(" ", math.max(0, padding)) .. " │")
+    end
+
+    -- Bottom border
+    table.insert(box, "╰" .. string.rep("─", box_display_width - 2) .. "╯")
+    return box, box_display_width
+  end
+
+  -- Build system info content (without closing border)
+  local sys_content = {
     string.format("│ OS: %s", sys_info.os:gsub("^%l", string.upper)),
     string.format("│ Host: %s", sys_info.hostname),
     string.format("│ Kernel: %s", sys_info.kernel),
     string.format("│ Arch: %s", sys_info.arch),
     string.format("│ Uptime: %s", M.format_uptime(sys_info.uptime)),
   }
-
   if sys_info.memory then
-    table.insert(info_lines, string.format("│ Memory: %s", sys_info.memory))
+    table.insert(sys_content, string.format("│ Memory: %s", sys_info.memory))
   end
 
-  table.insert(info_lines, "╰──────────────────────╯")
+  local sys_box, info_width = make_box("System Information", sys_content)
+
+  -- Build shortcuts box at the same width
+  local shortcut_content = {
+    "│ f - Find files",
+    "│ n - New file",
+    "│ q - Quit",
+  }
+  local shortcut_box = make_box("Shortcuts", shortcut_content)
+
+  -- Assemble info_lines
+  local info_lines = { "" }
+  for _, line in ipairs(sys_box) do
+    table.insert(info_lines, line)
+  end
   table.insert(info_lines, "")
-  table.insert(info_lines, "╭──────────────────────╮")
-  table.insert(info_lines, "│ f - Find files       │")
-  table.insert(info_lines, "│ n - New file         │")
-  table.insert(info_lines, "│ q - Quit             │")
-  table.insert(info_lines, "╰──────────────────────╯")
+  for _, line in ipairs(shortcut_box) do
+    table.insert(info_lines, line)
+  end
 
   -- Calculate layout
   local art_width = 0
   for _, line in ipairs(art) do
-    art_width = math.max(art_width, #line)
+    art_width = math.max(art_width, strwidth(line))
   end
-
-  local info_width = 25
   local total_width = art_width + info_width + 4 -- padding
-  local start_col = math.floor((win_width - total_width) / 2)
-  local start_row = math.floor((win_height - math.max(#art, #info_lines)) / 2)
 
-  -- Build combined lines
-  local lines = {}
-
-  -- Add empty lines to center vertically
-  for i = 1, math.max(0, start_row) do
-    table.insert(lines, "")
+  -- Helper: center lines horizontally and vertically
+  local function center_and_pad(content_lines)
+    local centered = {}
+    for _, line in ipairs(content_lines) do
+      local pad = math.max(0, math.floor((win_width - strwidth(line)) / 2))
+      table.insert(centered, string.rep(" ", pad) .. line)
+    end
+    local start_row = math.max(0, math.floor((win_height - #centered) / 2))
+    local result = {}
+    for _ = 1, start_row do
+      table.insert(result, "")
+    end
+    for _, l in ipairs(centered) do
+      table.insert(result, l)
+    end
+    return result
   end
 
-  -- Combine ASCII art with system info
-  local max_lines = math.max(#art, #info_lines)
-  for i = 1, max_lines do
-    local art_line = art[i] or string.rep(" ", art_width)
-    local info_line = info_lines[i] or ""
+  -- Choose layout mode based on window width
+  local lines
+  if win_width >= total_width + 4 then
+    -- Side-by-side: art left, info right
+    local start_col = math.floor((win_width - total_width) / 2)
+    local start_row = math.floor((win_height - math.max(#art, #info_lines)) / 2)
 
-    local combined_line = string.rep(" ", math.max(0, start_col)) .. art_line .. "    " .. info_line
+    lines = {}
+    for _ = 1, math.max(0, start_row) do
+      table.insert(lines, "")
+    end
 
-    table.insert(lines, combined_line)
+    local max_lines = math.max(#art, #info_lines)
+    for i = 1, max_lines do
+      local art_line = art[i] or string.rep(" ", art_width)
+      local info_line = info_lines[i] or ""
+      table.insert(lines, string.rep(" ", math.max(0, start_col)) .. art_line .. "    " .. info_line)
+    end
+  elseif win_width >= 40 then
+    -- Stacked: art on top, info below
+    local content = {}
+    for _, line in ipairs(art) do
+      table.insert(content, line)
+    end
+    table.insert(content, "")
+    for _, line in ipairs(info_lines) do
+      table.insert(content, line)
+    end
+    lines = center_and_pad(content)
+  else
+    -- Minimal: info boxes only, no ASCII art
+    local content = {}
+    for _, line in ipairs(info_lines) do
+      table.insert(content, line)
+    end
+    lines = center_and_pad(content)
   end
 
   -- Set all lines
