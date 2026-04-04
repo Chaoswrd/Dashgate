@@ -62,6 +62,11 @@ local function enable_plugin()
 end
 
 local function cleanup_plugin(event)
+  -- Don't clean up when the dashboard buffer itself is entering the window
+  if event and event.buf == plugin_state.dashboard_buf then
+    return
+  end
+
   local win_id = vim.api.nvim_get_current_win()
   -- local is_buf_visible =  winId == -1 or
   if win_id == plugin_state.window_buf then
